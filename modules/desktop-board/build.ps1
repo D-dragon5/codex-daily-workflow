@@ -14,6 +14,7 @@ foreach($name in @('Models.cs','NativeDesktop.cs','IconGeometry.cs','Program.cs'
 & (Join-Path $framework 'csc.exe') @arguments
 if($LASTEXITCODE -ne 0){throw '编译失败'}
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'LICENSE-UPSTREAM.txt') -Destination (Join-Path $out 'LICENSE-UPSTREAM.txt') -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'LICENSE') -Destination (Join-Path $out 'LICENSE') -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'THIRD_PARTY.md') -Destination (Join-Path $out 'THIRD_PARTY.md') -Force
 # A fresh standalone build gets synthetic examples; existing data is never replaced.
 if(-not $SkipDemo){

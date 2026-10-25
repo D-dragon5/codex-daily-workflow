@@ -10,6 +10,12 @@
 | [桌面日程板](modules/desktop-board/) | Windows 半透明任务面板，支持拖动、置顶、滚轮、尺寸和图标避让 | 读取自己的任务JSON，无须Codex |
 | 整套工作流 | 总账 → 任务视图 → 桌面展示 → 定时回顾 | 下列安装器一次配置 |
 
+## 来源与致谢
+
+桌面日程板基于 [TanxeStudio 与贡献者维护的 Desktop Tasks Widget](https://github.com/tanxestudio/Windows-desktop-Tasks-Widget) 改造，直接改写了其中的前台窗口事件检测、临时置顶及部分窗口状态处理逻辑，并参考了拖动、托盘与开机启动交互设计。所用上游版本为 [`32322d2`](https://github.com/tanxestudio/Windows-desktop-Tasks-Widget/tree/32322d2e649a7271722a17a4eac44ac9189e1ca0)。感谢原作者和贡献者开放代码。
+
+本工作流进一步实现了完整标题区拖动、独立拖动锁、尺寸与双屏靠右、连续矩形滚轮、图标透明避让、通用任务接口，以及每日回顾、科研周报和安装流程。具体使用范围见 [第三方来源与改动说明](modules/desktop-board/THIRD_PARTY.md)；原始版权声明和完整 MIT 许可随源码、构建产物与安装包一并保留。
+
 ## 最快开始
 
 下载仓库ZIP并解压，双击 `install.cmd`。默认完整安装：

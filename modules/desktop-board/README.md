@@ -2,6 +2,8 @@
 
 适用于 Windows 10/11 的本地半透明任务面板。无需联网、账号、额外包管理器或付费接口；使用系统的 .NET Framework 4.8 桌面环境。可单独复制此模块，也可由仓库总安装器接入每日回顾流程。其他平台可使用每日回顾技能和 JSON 数据，桌面程序仅支持 Windows。
 
+桌面窗口部分基于 [TanxeStudio 与贡献者维护的 Desktop Tasks Widget](https://github.com/tanxestudio/Windows-desktop-Tasks-Widget) 改造；前台事件、临时置顶及部分窗口状态处理属于直接代码改写。原始MIT版权许可已保留，使用范围和新增内容见 [第三方来源与改动说明](THIRD_PARTY.md)。感谢原作者与贡献者开放代码。
+
 ## 单独使用
 
 在本模块目录运行：

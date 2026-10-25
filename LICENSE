@@ -20,5 +20,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-The desktop-board module includes adapted MIT-licensed code. Its original
-copyright notice and full terms are retained in that module's LICENSE-UPSTREAM.
+The desktop-board module includes adapted MIT-licensed code from Desktop Tasks
+Widget, Copyright (c) 2025 Desktop Tasks Widget Contributors. Its original
+copyright notice and full terms are retained in that module's
+LICENSE-UPSTREAM.txt; the retained upstream notice applies to those portions.

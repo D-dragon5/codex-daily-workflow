@@ -1,5 +1,12 @@
-// Adapted from Desktop Tasks Widget, MIT, upstream 32322d2.
-// DesktopOverlay.xaml.cs: foreground event hook and temporary desktop topmost.
+// Portions adapted from Desktop Tasks Widget (MIT).
+// Copyright (c) 2025 Desktop Tasks Widget Contributors
+// https://github.com/tanxestudio/Windows-desktop-Tasks-Widget
+// Source: Windows/DesktopOverlay.xaml.cs at 32322d2e649a7271722a17a4eac44ac9189e1ca0
+// Adapted portions: foreground event hook, temporary topmost state and
+// minimization handling; window style switching was reorganized using upstream's
+// interaction approach. See ../THIRD_PARTY.md
+// and ../LICENSE-UPSTREAM.txt. Monitor alignment and icon avoidance integration
+// are additions maintained in Codex Daily Workflow.
 using System;
 using System.Runtime.InteropServices;
 using System.Text;

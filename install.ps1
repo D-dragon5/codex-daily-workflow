@@ -90,7 +90,7 @@ if($components -contains 'widget'){
  }
 }
 if(Test-Path -LiteralPath $marker){$previous=Get-Content -LiteralPath $marker -Raw -Encoding UTF8|ConvertFrom-Json;$components=@($components+@($previous.components)|Sort-Object -Unique);if(-not $appPath){$appPath=$previous.appPath}}
-$metadata=[ordered]@{package='codex-daily-workflow';version='0.1.0';configPath=$configPath;installRoot=$InstallRoot;components=@($components);appPath=$appPath;viewsRefreshed=$refreshed;scheduleRegistered=$false}
+$metadata=[ordered]@{package='codex-daily-workflow';version='0.1.1';configPath=$configPath;installRoot=$InstallRoot;components=@($components);appPath=$appPath;viewsRefreshed=$refreshed;scheduleRegistered=$false}
 WriteJson $marker $metadata
 foreach($skill in $skills){WriteJson (Join-Path $skill 'installation.json') $metadata}
 Write-Output ('安装完成：'+($components -join ', '))

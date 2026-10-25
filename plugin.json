@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "codex-daily-workflow",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Daily all-task review, research weekly-report preparation and an optional Windows desktop board.",
   "author": {"name": "D-dragon5"},
   "repository": "https://github.com/D-dragon5/codex-daily-workflow",

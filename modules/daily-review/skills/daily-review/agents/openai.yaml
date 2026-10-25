@@ -1,0 +1,6 @@
+interface:
+  display_name: "每日回顾与任务总账"
+  short_description: "回顾实际成果、整理今日任务并积累科研周报，保持证据与计划边界"
+  default_prompt: "请使用 $daily-review，读取我的工作流配置与总账，回顾昨天并安排今天。"
+policy:
+  allow_implicit_invocation: true

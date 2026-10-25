@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-01-01T09:00:00+00:00",
+  "timezone": "local",
+  "tasks": [
+    {"id":"R01","title":"复核一项研究假设","priority":"重要","category":"科研","due":null,"status":"待开始","next":"明确最小对照和观察指标","progress":"虚构示例，尚未执行","requirement":"区分研究动机、待解问题和拟验证贡献","deadlineNote":"未设截止日期"},
+    {"id":"C01","title":"整理一份课程笔记","priority":"常规","category":"课程","due":null,"status":"进行中","next":"补充自己的理解与引用来源","progress":"虚构示例","requirement":"按实际课程要求完成","deadlineNote":"截止日期待明确"},
+    {"id":"P01","title":"确认下周的个人安排","priority":"常规","category":"个人事务","due":null,"status":"待确认","next":"核对真实时间后录入日程","progress":"虚构示例","requirement":"保留未知时间，不猜测","deadlineNote":"未指定"}
+  ]
+}

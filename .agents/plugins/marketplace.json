@@ -1,0 +1,9 @@
+{
+  "name": "codex-daily-workflow",
+  "interface": {"displayName": "Codex Daily Workflow"},
+  "plugins": [
+    {"name":"codex-daily-workflow","source":{"source":"local","path":"./"},"policy":{"installation":"AVAILABLE","authentication":"ON_INSTALL"},"category":"Productivity"},
+    {"name":"codex-daily-review","source":{"source":"local","path":"./modules/daily-review"},"policy":{"installation":"AVAILABLE","authentication":"ON_INSTALL"},"category":"Productivity"},
+    {"name":"codex-desktop-board","source":{"source":"local","path":"./modules/desktop-board"},"policy":{"installation":"AVAILABLE","authentication":"ON_INSTALL"},"category":"Productivity"}
+  ]
+}

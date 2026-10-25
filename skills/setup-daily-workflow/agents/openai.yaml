@@ -1,0 +1,4 @@
+interface:
+  display_name: "配置每日工作流"
+  short_description: "选择模块、定位本机账本与视图，并按用户要求注册每日回顾任务"
+  default_prompt: "使用 $setup-daily-workflow 配置本机每日任务工作流，保留现有数据并核对定时任务状态。"

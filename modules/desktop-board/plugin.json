@@ -1,0 +1,8 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "codex-desktop-board",
+  "version": "0.1.0",
+  "description": "Configure a local Windows desktop task board with independent JSON data.",
+  "author": {"name": "D-dragon5"},
+  "license": "MIT"
+}

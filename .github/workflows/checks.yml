@@ -1,0 +1,25 @@
+name: Check portable workflow
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m unittest discover -s modules/daily-review/tests -v
+      - run: python tools/audit_release.py .
+      - run: python scripts/package.py
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - shell: powershell
+        run: .\modules\desktop-board\tests\test-models.ps1
+      - run: python -m unittest discover -s tests -v

@@ -1,0 +1,34 @@
+---
+name: desktop-board
+description: 安装、配置和维护 Windows 桌面日程板，连接可移植任务 JSON、课程与显示设置；不用于科研内容写作或自动判定任务完成。
+---
+
+# 桌面日程板
+
+帮助用户独立使用桌面日程板，或把它接入每日回顾流程。保持任务记录和界面设置分离。
+
+## 定位安装
+
+先读技能目录中的 `installation.json`（若存在），使用其中 `configPath` 与 `appPath`。否则寻找用户当前项目的 `workflow.config.json`；完整模块复制情况下，构建脚本位于技能目录的 `../../build.ps1`。若只有技能文件而缺少程序或源码，说明需复制完整 `modules/desktop-board` 或运行工作流安装器，不猜测其他人的安装路径。
+
+仅 Windows 10/11 支持此桌面程序。其他平台可继续使用每日回顾技能和任务 JSON，明确桌面界面尚不可用。
+
+## 数据与配置
+
+`workflow.config.json` 的路径相对配置文件目录解析，程序支持 `--config <path>`。`tasksPath` 指向任务 JSON：`schemaVersion:1`、`tasks` 数组，每项需有稳定 `id`、`title`；其余字段见模块示例。配置 `timezone` 支持 `local`、`UTC`、`Asia/Hong_Kong`、`Asia/Shanghai` 及 Windows 时区 ID，不静默替换无效时区。
+
+单独使用时维护该 JSON。接入每日回顾时以总账为事实源，刷新生成 JSON；日程板只读任务，不把点开界面或计划当成完成。不得为界面复制第二套独立任务总览。
+
+窗口偏好保存在 `settingsPath`，今日重点和课程保存在 `plannerPath`。更新时保留这两份用户数据。开机启动默认关闭，仅按用户要求或用户手动开关设置。
+
+## 使用与维护
+
+- 允许拖动开启时，标题及日期的整块区域可拖动；锁定后仍能展开详情。
+- 置顶、背景透明度、收起、大小和当前屏靠右均由程序控制。
+- 全透明普通模式的滚轮范围是可见文字宽度到提示上缘的连续矩形；矩形外空白穿透。
+- 桌面模式使用公开图标几何裁剪冲突区域，保持非冲突内容可见；恢复按钮也避让图标。它不改变系统壁纸、不读取图标名称或文件内容。
+- 图标读取失败应保留普通模式或已有有效状态并说明缺口，不把空结果视为“没有图标”。
+
+构建：在完整模块目录执行 `powershell -NoProfile -File ./build.ps1`。默认产物为 `dist/DesktopBoard.exe` 和虚构示例；安装器集成时使用 `-OutputFolder <应用目录> -SkipDemo`，再写入自己的配置。
+
+数据验证用 `tests/test-models.ps1`。GUI 冒烟检查使用隔离示例 `DesktopBoard.exe --smoke-test --config <示例配置>`，与真实鼠标效果验证分开说明。不得为测试关闭或覆盖用户正在使用的其他版本。

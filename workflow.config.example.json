@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "timezone": "local",
+  "ledgerPath": "data/每日任务与科研总账.md",
+  "tasksPath": "data/tasks.json",
+  "overviewPath": "data/任务总览.xlsx",
+  "detailsPath": "data/任务详情.html",
+  "weeklyReportsDir": "data/weekly-reports",
+  "plannerPath": "data/日程配置.json",
+  "settingsPath": "data/显示设置.json",
+  "dailyTime": "05:30",
+  "weeklySubmissionDay": null
+}

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2030-01-01T08:00:00+00:00",
+  "timezone": "local",
+  "tasks": [
+    {"id":"DEMO-RESEARCH","title":"整理一项可检验的研究问题","priority":"重要","category":"科研","due":null,"status":"待开始","next":"列出输入、对照和评价指标","progress":"这是虚构示例","requirement":"选择一个小问题开展验证","deadlineNote":"尚未指定截止日"},
+    {"id":"DEMO-WORK","title":"准备小组讨论材料","priority":"常规","category":"工作","due":null,"status":"进行中","next":"整理三条讨论要点","progress":"已有提纲","requirement":"保留材料出处","deadlineNote":"尚未指定日期"},
+    {"id":"DEMO-DONE","title":"创建任务账本示例","priority":"常规","category":"管理","due":null,"status":"已完成","next":"保留完成记录","progress":"示例完成声明","requirement":"示范已完成事项收起","deadlineNote":"示例"}
+  ]
+}

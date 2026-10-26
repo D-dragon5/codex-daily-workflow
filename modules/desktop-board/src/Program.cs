@@ -50,6 +50,9 @@ namespace DailySchedule {
         Thumb sizeGrip;
         TextBlock scrollHint;
         readonly List<Expander> taskCards=new List<Expander>();
+        readonly HashSet<string> expandedTaskIds=new HashSet<string>(StringComparer.Ordinal);
+        Expander otherTasks;
+        int renderRevision;
         readonly List<Button> surfaceButtons=new List<Button>();
         Forms.NotifyIcon tray;
         NativeDesktop native;
@@ -64,8 +67,8 @@ namespace DailySchedule {
             folder=root;testing=test||interactive;interactiveTesting=interactive;
             configFilePath=Path.GetFullPath(configPath??Path.Combine(root,"workflow.config.json"));config=WorkflowConfig.Load(configFilePath);zone=config.Zone();
             settingsPath=interactive?Path.Combine(root,"qa-preferences.json"):test?Path.Combine(root,"test-preferences.json"):config.Resolve(config.settingsPath);
-            planPath=config.Resolve(config.plannerPath);
-            prefs=Store.Read(settingsPath,new Preferences());plan=Store.Read(planPath,new PlannerData());
+            planPath=test?Path.Combine(root,"test-plan.json"):config.Resolve(config.plannerPath);
+            prefs=testing?new Preferences():Store.Read(settingsPath,new Preferences());plan=testing?new PlannerData():Store.Read(planPath,new PlannerData());
             Title="Codex桌面日程板";FontFamily=new FontFamily("Microsoft YaHei UI");FontSize=13;
             Width=Math.Max(340,Math.Min(640,prefs.Width));Height=Math.Max(220,Math.Min(SystemParameters.WorkArea.Height-28,prefs.Height));
             WindowStyle=WindowStyle.None;AllowsTransparency=true;Background=Brushes.Transparent;
@@ -76,15 +79,15 @@ namespace DailySchedule {
             Top=prefs.Top<-90000?SystemParameters.WorkArea.Top+16:prefs.Top;
             ClampPosition();
             Loaded+=delegate {
-                native=new NativeDesktop(this);SetupTray();ready=true;
+                if(!testing){native=new NativeDesktop(this);SetupTray();}ready=true;
                 dragToggle.IsChecked=prefs.AllowDragging;topToggle.IsChecked=prefs.AlwaysOnTop;
                 transparency.Value=100-prefs.BackgroundOpacity*100;
                 SetCollapsed(prefs.Collapsed);RefreshData(true);
                 UpdateResizeGrip();QueueFitToday();SetDesktopMode(prefs.DesktopMode);
                 refresh=new DispatcherTimer{Interval=TimeSpan.FromSeconds(15)};
                 refresh.Tick+=delegate{RefreshData(false);};refresh.Start();
-                iconTimer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(2)};
-                iconTimer.Tick+=delegate{if(desktopModeRequested||prefs.DesktopMode){if(iconReadBusy&&iconSnapshot==null&&(DateTime.UtcNow-iconReadStarted).TotalSeconds>4){desktopModeRequested=false;desktopButton.Content="桌面";errorText.Text="桌面图标位置读取超时，保持普通模式。";errorText.Visibility=Visibility.Visible;}else RequestIcons();}};iconTimer.Start();
+                if(!testing){iconTimer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(2)};
+                iconTimer.Tick+=delegate{if(desktopModeRequested||prefs.DesktopMode){if(iconReadBusy&&iconSnapshot==null&&(DateTime.UtcNow-iconReadStarted).TotalSeconds>4){desktopModeRequested=false;desktopButton.Content="桌面";errorText.Text="桌面图标位置读取超时，保持普通模式。";errorText.Visibility=Visibility.Visible;}else RequestIcons();}};iconTimer.Start();}
                 if(test)Dispatcher.BeginInvoke(new Action(SelfTest),DispatcherPriority.ApplicationIdle);
             };
             Closing+=delegate{closing=true;if(refresh!=null)refresh.Stop();if(iconTimer!=null)iconTimer.Stop();SavePreferences();if(recoveryWindow!=null)recoveryWindow.Close();if(native!=null)native.Dispose();if(tray!=null)tray.Dispose();};
@@ -126,7 +129,7 @@ namespace DailySchedule {
             var switches=new WrapPanel();settings.Children.Add(switches);
             dragToggle=Toggle("允许拖动",delegate{prefs.AllowDragging=dragToggle.IsChecked==true;UpdateDragArea();SavePreferences();});switches.Children.Add(dragToggle);
             topToggle=Toggle("始终置顶",delegate{prefs.AlwaysOnTop=topToggle.IsChecked==true;Topmost=prefs.AlwaysOnTop&&!prefs.DesktopMode;if(native!=null)native.Reset();SavePreferences();});switches.Children.Add(topToggle);
-            startToggle=Toggle("开机启动",delegate{if(ready&&!testing)SetStartup(startToggle.IsChecked==true);});startToggle.IsChecked=StartupEnabled();switches.Children.Add(startToggle);
+            startToggle=Toggle("开机启动",delegate{if(ready&&!testing)SetStartup(startToggle.IsChecked==true);});startToggle.IsChecked=!testing&&StartupEnabled();switches.Children.Add(startToggle);
             var opacityRow=new DockPanel{Margin=new Thickness(0,8,0,8)};settings.Children.Add(opacityRow);
             opacityRow.Children.Add(Label("背景透明度",12,Muted));
             transparency=new Slider{Minimum=0,Maximum=100,Width=180,Margin=new Thickness(14,0,0,0),Value=100-prefs.BackgroundOpacity*100};
@@ -338,17 +341,22 @@ namespace DailySchedule {
             var day=Today;dateText.Text=day.ToString("M月d日  dddd",CultureInfo.GetCultureInfo("zh-CN"));
             string taskFile=config.Resolve(config.tasksPath);
             try {
-                string sig=File.GetLastWriteTimeUtc(taskFile).Ticks+":"+File.GetLastWriteTimeUtc(planPath).Ticks+":"+day.Ticks;
+                string ledgerFile=config.Resolve(config.ledgerPath);
+                string sig=Store.FileSignature(taskFile)+"|"+Store.FileSignature(ledgerFile)+"|"+Store.FileSignature(planPath)+"|"+day.Ticks;
                 if(!force&&sig==loadedSignature)return;
-                var newTasks=Store.LoadTasks(taskFile);var newPlan=Store.Read(planPath,new PlannerData());
+                var newTasks=Store.LoadTasks(taskFile,ledgerFile);var newPlan=Store.Read(planPath,new PlannerData());
+                if(newPlan==null||newPlan.Courses==null||newPlan.Courses.Any(course=>course==null))throw new InvalidDataException("日程配置必须为对象，且 Courses 为有效数组。");
 
                 tasks=newTasks;plan=newPlan;loadedSignature=sig;errorText.Text="";RenderTasks();
                 errorText.Visibility=Visibility.Collapsed;
-                sourceText.Text="数据更新 "+TimeZoneInfo.ConvertTimeFromUtc(File.GetLastWriteTimeUtc(taskFile),zone).ToString("MM-dd HH:mm")+" · 每15秒检查变化";
+                DateTime updated=File.GetLastWriteTimeUtc(taskFile);if(File.Exists(ledgerFile)&&File.GetLastWriteTimeUtc(ledgerFile)>updated)updated=File.GetLastWriteTimeUtc(ledgerFile);
+                sourceText.Text="数据更新 "+TimeZoneInfo.ConvertTimeFromUtc(updated,zone).ToString("MM-dd HH:mm")+" · 每15秒检查变化";
             }catch(Exception ex){errorText.Text="刷新未成功，保留上次内容："+ex.Message;errorText.Visibility=Visibility.Visible;QueueFitToday();}
         }
         void Section(string text){var t=Label(text,13,Blue);t.FontWeight=FontWeights.SemiBold;t.Margin=new Thickness(0,15,0,8);body.Children.Add(t);}
         void RenderTasks() {
+            double offset=scroll.VerticalOffset;bool othersExpanded=otherTasks!=null&&otherTasks.IsExpanded;int revision=++renderRevision;
+            expandedTaskIds.Clear();foreach(var card in taskCards)if(card.IsExpanded&&card.Tag is string)expandedTaskIds.Add((string)card.Tag);
             var today=Today;body.Children.Clear();taskCards.Clear();
             Section(plan.PlanDate==today.ToString("yyyy-MM-dd")?"今日重点 · 已选择":"今日重点 · 建议安排");
             var focus=Store.FocusTasks(tasks,plan,today);foreach(var task in focus)body.Children.Add(Card(task));
@@ -366,10 +374,11 @@ namespace DailySchedule {
             if(due.Count==0)body.Children.Add(Label("未来两周暂无已记录截止事项。",13,Muted));
             var old=tasks.Where(t=>!t.Completed&&t.Due.HasValue&&t.Due.Value.Date<today).ToList();
             if(old.Count>0){Section("日期已过 · 状态待核实");foreach(var t in old)body.Children.Add(Card(t));}
-            var all=new Expander{Header="其他待办（"+tasks.Count(t=>!t.Completed&&!focus.Contains(t)&&!due.Contains(t)&&!old.Contains(t))+"）",Foreground=Muted,Margin=new Thickness(0,12,0,4)};
+            var all=new Expander{Header="其他待办（"+tasks.Count(t=>!t.Completed&&!focus.Contains(t)&&!due.Contains(t)&&!old.Contains(t))+"）",Foreground=Muted,Margin=new Thickness(0,12,0,4),IsExpanded=othersExpanded};otherTasks=all;
             var others=new StackPanel();foreach(var t in tasks.Where(t=>!t.Completed&&!focus.Contains(t)&&!due.Contains(t)&&!old.Contains(t)))others.Children.Add(Card(t));all.Content=others;body.Children.Add(all);
             body.Children.Add(Label("已完成 "+tasks.Count(t=>t.Completed)+" 项 · 已从待办中收起",11,Muted));
             body.Children.Add(footerContent);ApplyBackground();QueueFitToday();
+            Dispatcher.BeginInvoke(new Action(delegate{if(!closing&&revision==renderRevision){UpdateLayout();scroll.ScrollToVerticalOffset(offset);QueueWheelRectangle();}}),DispatcherPriority.ContextIdle);
         }
         Expander Card(TaskInfo task) {
             var head=new StackPanel();head.Children.Add(Label(task.Title,14,Text));
@@ -379,7 +388,7 @@ namespace DailySchedule {
             detail.Children.Add(Label("下一步",11,Blue));detail.Children.Add(Label(task.Next,13,Text));
             detail.Children.Add(Label("当前进展",11,Blue));detail.Children.Add(Label(task.Progress,12,Muted));
             detail.Children.Add(Label("要求与日期依据",11,Blue));detail.Children.Add(Label(task.Requirement+"\n"+task.DeadlineNote,12,Muted));
-            var card=new Expander{Header=head,Content=detail,Foreground=Muted,Background=Brush("#102E4764"),Padding=new Thickness(2,5,5,2),Margin=new Thickness(0,0,0,5),HorizontalContentAlignment=HorizontalAlignment.Stretch};
+            var card=new Expander{Header=head,Content=detail,Tag=task.Id,IsExpanded=expandedTaskIds.Contains(task.Id),Foreground=Muted,Background=Brush("#102E4764"),Padding=new Thickness(2,5,5,2),Margin=new Thickness(0,0,0,5),HorizontalContentAlignment=HorizontalAlignment.Stretch,Cursor=Cursors.Hand};
             card.Expanded+=delegate{QueueFitToday();QueueWheelRectangle();};card.Collapsed+=delegate{QueueFitToday();QueueWheelRectangle();};taskCards.Add(card);return card;
         }
         void OpenOverview(){string preferred=config.Resolve(config.overviewPath);if(!File.Exists(preferred))preferred=File.Exists(config.Resolve(config.detailsPath))?config.Resolve(config.detailsPath):config.Resolve(config.tasksPath);Open(preferred);}
@@ -394,8 +403,9 @@ namespace DailySchedule {
             var stack=new StackPanel{Margin=new Thickness(20)};
             stack.Children.Add(new TextBlock{Text="选择今天真正要推进的任务；建议不超过3项。",TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,0,0,14)});
             var checks=new Dictionary<CheckBox,string>();
+            var selected=new HashSet<string>(Store.SelectedTaskIds(tasks,plan),StringComparer.Ordinal);
             foreach(var t in tasks.Where(t=>!t.Completed)){
-                var c=new CheckBox{Content=t.Title,IsChecked=plan.PlanDate==Today.ToString("yyyy-MM-dd")&&plan.TodayTaskIds.Contains(t.Id),Margin=new Thickness(0,0,0,12)};stack.Children.Add(c);checks[c]=t.Id;
+                var c=new CheckBox{Content=t.Title,IsChecked=plan.PlanDate==Today.ToString("yyyy-MM-dd")&&selected.Contains(t.Id),Margin=new Thickness(0,0,0,12)};stack.Children.Add(c);checks[c]=t.Id;
             }
             var w=Dialog("选择今日重点",stack);
             var save=new Button{Content="保存今天的安排",Padding=new Thickness(12),Margin=new Thickness(0,10,0,0)};
@@ -437,8 +447,41 @@ namespace DailySchedule {
                 prefs.AutoFitToday=true;settings.Visibility=Visibility.Collapsed;FitToday();SettleLayout();
                 check(Height>=220&&Height<=SystemParameters.WorkArea.Height,"窗口自动高度异常");
                 SavePreferences();var saved=Store.Read(settingsPath,new Preferences());check(!saved.AlwaysOnTop,"显示设置未保存");
+                string fixtures=Path.Combine(folder,"smoke-fixtures");Directory.CreateDirectory(fixtures);
+                config.tasksPath=Path.Combine(fixtures,"tasks.json");config.ledgerPath=Path.Combine(fixtures,"ledger.md");
+                Store.Write(config.tasksPath,new TasksDocument{schemaVersion=1,tasks=new List<TaskRow>{new TaskRow{id="alpha",title="JSON旧标题",status="待开始"},new TaskRow{id="jsonOnly",title="JSON独有项目",status="待开始"}}});
+                plan=new PlannerData{PlanDate=Today.ToString("yyyy-MM-dd"),TodayTaskIds=new[]{"alpha"}};Store.Write(planPath,plan);
+                string[] rows={"| alpha | 工作 | 同名任务 | 重要 | 待核实 | 进行中 | 核对全量下一步<br>第二行 | 完整要求\\|分隔符<br>source: generic |","| Beta_7 | 科研 | 同名任务 | 常规 | 建议2030-04-02 | 已完成初稿，未提交 | 继续处理 | 局部完成仍待办 |","| longWork | 工作 | 长期事项 | 常规 | 待核实 | 待开始 | 推进安排 | 详情说明 |","| verified | 工作 | 确认完成事项 | 常规 | 2030-04-02 | 已完成（用户确认） | 无 | 完成依据 |"};
+                string header="<!-- tasks:start -->\n| ID | 类别 | 任务 | 优先级 | 截止日期 | 状态 | 下一步 | 详细说明 |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n",tail="\n<!-- tasks:end -->\n";
+                File.WriteAllText(config.ledgerPath,header+string.Join("\n",rows)+tail,new UTF8Encoding(false));
+                RefreshData(false);SettleLayout();
+                check(tasks.Select(task=>task.Id).SequenceEqual(new[]{"alpha","Beta_7","longWork","verified"}),"主表任务集合或顺序未同步");
+                check(tasks.All(task=>task.Id!="jsonOnly")&&tasks.Single(task=>task.Id=="verified").Completed,"旧JSON任务或完成项处理错误");
+                var alpha=taskCards.Single(card=>(string)card.Tag=="alpha");alpha.ApplyTemplate();
+                var toggle=alpha.Template.FindName("Toggle",alpha) as ToggleButton;check(toggle!=null&&panel.IsHitTestVisible&&toggle.IsEnabled,"普通模式任务不可交互");
+                typeof(ToggleButton).GetMethod("OnClick",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).Invoke(toggle,null);SettleLayout();
+                check(alpha.IsExpanded,"任务模板展开交互失败");
+                string detail=string.Join("\n",((StackPanel)alpha.Content).Children.OfType<TextBlock>().Select(text=>text.Text));
+                check(detail.Contains("核对全量下一步\n第二行")&&detail.Contains("完整要求|分隔符\nsource: generic"),"自动关联的完整详情未显示");
+                otherTasks.IsExpanded=true;prefs.AutoFitToday=false;Height=340;SettleLayout();scroll.ScrollToVerticalOffset(80);SettleLayout();double offset=scroll.VerticalOffset;
+                check(offset>0,"合成内容未产生可验证的滚动范围");
+                rows[0]="| alpha | 工作 | 改名后的任务 | 紧急 | 截止日期：2030-04-02前 | 进展已更新 | 更新后的下一步 | 更新后的完整要求 |";
+                rows[2]="| added-task | 工作 | 新增且JSON尚未刷新 | 常规 | 待核实 | 待开始 | 自动出现 | 新增详情 |";
+                string revised=header+string.Join("\n",rows.Reverse())+tail;
+                File.WriteAllText(config.ledgerPath,revised,new UTF8Encoding(false));RefreshData(false);SettleLayout();
+                check(tasks.Select(task=>task.Id).SequenceEqual(new[]{"verified","added-task","Beta_7","alpha"}),"新增、删项或排序未随主表更新");
+                check(Store.FocusTasks(tasks,plan,Today).Single().Title=="改名后的任务","改名导致今日稳定编号失效");
+                check(taskCards.Single(card=>(string)card.Tag=="alpha").IsExpanded&&otherTasks.IsExpanded,"刷新后任务或其他待办展开状态丢失");
+                check(Math.Abs(scroll.VerticalOffset-offset)<1,"刷新后滚动位置丢失");
+                check(taskCards.Any(card=>(string)card.Tag=="Beta_7")&&!taskCards.Any(card=>(string)card.Tag=="verified"),"局部完成被收起或完成任务仍显示");
+                string signature=loadedSignature;var previous=tasks;var previousCard=taskCards.Single(card=>(string)card.Tag=="alpha");
+                File.WriteAllText(config.ledgerPath,"<!-- tasks:start -->\n正在编辑",new UTF8Encoding(false));RefreshData(false);SettleLayout();
+                check(object.ReferenceEquals(previous,tasks)&&loadedSignature==signature&&taskCards.Contains(previousCard)&&errorText.Visibility==Visibility.Visible,"错误总账刷新未保留旧内容");
+                File.Delete(config.ledgerPath);RefreshData(false);SettleLayout();check(tasks.Select(task=>task.Id).SequenceEqual(new[]{"alpha","jsonOnly"}),"主表删除未触发JSON回退");
+                File.WriteAllText(config.ledgerPath,revised,new UTF8Encoding(false));RefreshData(false);SettleLayout();check(tasks.Any(task=>task.Id=="added-task"),"新建主表文件未触发自动读取");
+                otherTasks.IsExpanded=true;taskCards.Single(card=>(string)card.Tag=="alpha").IsExpanded=true;SettleLayout();scroll.ScrollToTop();SettleLayout();
                 SavePreview("smoke-preview.png");
-                Store.Write(Path.Combine(folder,"smoke-result.json"),new{passed=true,tasks=tasks.Count,completed=tasks.Count(t=>t.Completed),configuredTimezone=config.timezone,tests=new[]{"配置和任务读取","空任务列表支持","拖动开关","置顶开关","全透明外框","收起展开","自动高度","显示设置持久化"},startupChanged=false});
+                Store.Write(Path.Combine(folder,"smoke-result.json"),new{passed=true,tasks=tasks.Count,completed=tasks.Count(t=>t.Completed),configuredTimezone=config.timezone,tests=new[]{"配置和任务读取","拖动开关","置顶开关","全透明外框","收起展开","自动高度","隔离显示设置持久化","规范总账主源","通用新编号和重名","完整详情和转义","模板展开交互","改名与排序","完成与局部完成","新增与删项","按ID保留展开和滚动","错误保留旧显示","主表存在性变化"},startupChanged=false,desktopIconsRead=false,existingPreferencesRead=false});
             }catch(Exception ex){File.WriteAllText(Path.Combine(folder,"smoke-error.txt"),ex.ToString(),Encoding.UTF8);Environment.ExitCode=1;}
             Close();
         }
@@ -448,11 +491,22 @@ namespace DailySchedule {
     internal static class Program {
         [STAThread] static void Main(string[] args) {
             bool test=args.Contains("--self-test")||args.Contains("--smoke-test"),interactive=args.Contains("--interactive-test");
+            bool checkData=args.Contains("--check-data");
             string folder=AppDomain.CurrentDomain.BaseDirectory;
             try {
+                if(checkData){Console.SetOut(new StreamWriter(Console.OpenStandardOutput(),new UTF8Encoding(false)){AutoFlush=true});Console.SetError(new StreamWriter(Console.OpenStandardError(),new UTF8Encoding(false)){AutoFlush=true});}
                 int ci=Array.IndexOf(args,"--config");
                 if(ci>=0&&ci+1>=args.Length)throw new ArgumentException("--config 后需要配置文件路径。");
                 string configPath=ci>=0?Path.GetFullPath(args[ci+1]):Path.Combine(folder,"workflow.config.json");
+                if(checkData) {
+                    int di=Array.IndexOf(args,"--check-data");
+                    if(di+1>=args.Length||args[di+1].StartsWith("--",StringComparison.Ordinal))throw new ArgumentException("--check-data 后需要任务 JSON 路径。");
+                    var config=WorkflowConfig.Load(configPath);var zone=config.Zone();
+                    var day=TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,zone).Date;
+                    var tasks=Store.LoadTasks(Path.GetFullPath(args[di+1]),config.Resolve(config.ledgerPath));
+                    Console.WriteLine(Store.Json.Serialize(new{passed=true,today=day.ToString("yyyy-MM-dd"),configuredTimezone=config.timezone,tasks=tasks.Select(task=>new{id=task.Id,title=task.Title,category=task.Category,priority=task.Priority,status=task.Status,due=task.Due.HasValue?task.Due.Value.ToString("yyyy-MM-dd"):null,next=task.Next,progress=task.Progress,requirement=task.Requirement,deadlineNote=task.DeadlineNote}).ToArray()}));
+                    return;
+                }
                 string identity;
                 using(var sha=System.Security.Cryptography.SHA256.Create())identity=BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(configPath.ToUpperInvariant()))).Replace("-","").Substring(0,16);
                 bool created;
@@ -461,6 +515,7 @@ namespace DailySchedule {
                     var app=new Application();app.Run(new Board(folder,test,interactive,configPath));
                 }
             } catch(Exception ex) {
+                if(checkData){Console.Error.WriteLine("数据检查失败："+ex.Message);Environment.ExitCode=1;return;}
                 File.WriteAllText(Path.Combine(folder,test?"smoke-error.txt":"运行错误.txt"),ex.ToString(),Encoding.UTF8);
                 if(!test)Forms.MessageBox.Show("日程板未能启动："+ex.Message,"Codex桌面日程板");Environment.ExitCode=1;
             }

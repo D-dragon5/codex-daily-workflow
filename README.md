@@ -7,7 +7,7 @@
 | 选择 | 作用 | 独立使用 |
 |---|---|---|
 | [每日回顾](modules/daily-review/) | 检查可访问的新交流，维护全部任务总账，安排今日重点，积累科研周报 | 复制一个技能文件夹即可 |
-| [桌面日程板](modules/desktop-board/) | Windows 半透明任务面板，支持拖动、置顶、滚轮、尺寸和图标避让 | 读取自己的任务JSON，无须Codex |
+| [桌面日程板](modules/desktop-board/) | Windows 半透明任务面板，可直接展开任务详情，支持拖动、置顶、滚轮、尺寸和图标避让 | 读取自己的任务JSON或规范总账，无须Codex |
 | 整套工作流 | 总账 → 任务视图 → 桌面展示 → 定时回顾 | 下列安装器一次配置 |
 
 ## 来源与致谢
@@ -51,7 +51,7 @@ Windows PowerShell：
 改安装位置或隔离试用：
 
 ```powershell
-.\install.ps1 -Component all -InstallRoot .\sandbox\app -DataDir .\sandbox\data -SkillRoot .\sandbox\skills -NoShortcut
+.\install.ps1 -Component all -InstallRoot "$env:TEMP\CodexWorkflowDemo\app" -DataDir "$env:TEMP\CodexWorkflowDemo\data" -SkillRoot "$env:TEMP\CodexWorkflowDemo\skills" -NoShortcut
 ```
 
 安装器保留现有配置与主账本。已有手工任务JSON但没有主账本时，会阻止用示例账本覆盖任务；请先导入账本或选择新的数据目录。更新运行中的日程板之前先退出该副本；安装器不强制结束其他实例。
@@ -84,10 +84,12 @@ codex plugin marketplace add D-dragon5/codex-daily-workflow
 1. 总账保存长期目标、任务、完成记录与来源，是事实主账。
 2. 每日回顾只检查可访问的新上下文，区分意向、计划、完成声明和已验证成果。看不到的工作保留缺口。
 3. 刷新脚本从标记任务表生成一份任务JSON、一份Excel总览和一份可定位的网页详情。
-4. 日程板读取任务JSON；今日重点和课表配置独立保存，任务完成状态仍由主账派生。
+4. 日程板每15秒检查配置指向的任务JSON与总账。接入规范任务表后，按稳定ID直接读取新任务及完整详情，无需先生成Excel；单独维护JSON的用法仍支持。今日重点和课表独立保存。
 5. 周报提取科研成果、认识、卡点与下一步，课程与个人事务仍在总账内跟踪。
 
 桌面模式当前采用**图标避让**：重叠图标及文件名的区域透明，内容可穿透点击；恢复按钮也避让图标。它不修改系统壁纸，也不承诺所有Windows桌面组合环境中都有同样的背景层效果。
+
+普通模式下点击任务可展开下一步、进展、要求和日期依据。刷新保留已展开内容与滚动位置；桌面模式先点“恢复”再操作。新增、改名、排序和重名任务均按稳定ID关联，任务名不作为唯一标识。
 
 ## 数据和边界
 
@@ -102,7 +104,11 @@ codex plugin marketplace add D-dragon5/codex-daily-workflow
 ```powershell
 python -m unittest discover -s modules/daily-review/tests -v
 powershell -NoProfile -File modules/desktop-board/tests/test-models.ps1
-python tools/audit_release.py .
+python tools/audit_release.py . --git-index --git-history
+python scripts/package.py
+python tools/audit_release.py . --archives artifacts
 ```
 
 构建及安装检查见 [迁移与验证](docs/PORTABILITY.md)。许可为MIT，桌面模块的开源基础、提交与原始许可完整保留在 [第三方声明](modules/desktop-board/THIRD_PARTY.md)。
+
+每次推送和上传发布包前均执行脱敏审核，步骤和本地推送门禁见 [发布隐私检查](docs/RELEASE-PRIVACY.md)。私密词表保存在仓库外，扫描结果只报告位置与规则，不回显命中原文。

@@ -65,7 +65,7 @@ class ReviewTests(unittest.TestCase):
         rows = refresh.parse_ledger(ledger(
             "| A1 | 课程 | 部分完成 | 常规 | 2030-03-30 | 已完成初稿，未提交 | 核对 | 说明 |",
             "| A2 | 课程 | 已完成 | 常规 | 2030-03-30 | 已完成（用户确认） | 无 | 说明 |",
-            "| A3 | 课程 | 今日截止 | 紧急 | 2030-04-01（待核实） | 未开始 | 核对 | 说明 |",
+            "| A3 | 课程 | 今日截止 | 紧急 | 2030-04-01 | 未开始 | 核对 | 说明 |",
             "| A4 | 课程 | 候选时间 | 核查 | 2030-04-02或2030-04-03 | 待核查 | 核对 | 说明 |",
         ))
         today = dt.date(2030, 4, 1)
@@ -73,6 +73,67 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual("已完成", refresh.date_cue(rows[1], today))
         self.assertEqual("今天截止", refresh.date_cue(rows[2], today))
         self.assertIsNone(rows[3]["due"])
+
+    def test_suggested_relative_or_uncertain_dates_remain_notes(self):
+        notes = ["建议2030-04-01，实际日期待确认", "2030-04-01（待核实）", "明天", "2030-04-01或2030-04-02"]
+        for note in notes:
+            with self.subTest(note=note):
+                task = refresh.parse_ledger(ledger("| sample | 工具 | 示例 | 常规 | %s | 待开始 | 确认 | 示例 |" % note))[0]
+                self.assertIsNone(task["due"])
+                self.assertEqual(note, task["deadlineNote"])
+        for note in ["2030-04-01", "截止：2030-04-01前", "截止日期2030-04-01"]:
+            task = refresh.parse_ledger(ledger("| sample | 工具 | 示例 | 常规 | %s | 待开始 | 确认 | 示例 |" % note))[0]
+            self.assertEqual("2030-04-01", task["due"])
+
+    def test_partial_completion_is_not_a_completed_task(self):
+        for status in ["已完成（第一部分）", "已完成，仍待提交", "已完成第一部分"]:
+            task = refresh.parse_ledger(ledger("| sample | 课程 | 示例 | 常规 | 待定 | %s | 继续完成 | 示例 |" % status))[0]
+            self.assertEqual(status, task["status"])
+            self.assertNotEqual("已完成", task["status"])
+
+    def test_existing_english_complete_statuses_remain_supported(self):
+        for status in ["done", "completed", "DONE", "Completed"]:
+            task = refresh.parse_ledger(ledger("| sample | 工作 | 示例 | 常规 | 待定 | %s | 无 | 示例 |" % status))[0]
+            self.assertEqual("已完成", task["status"])
+            self.assertEqual(status, task["progress"])
+
+    def test_new_stable_ids_and_full_details_survive_refresh(self):
+        self.source.write_text(ledger(
+            "| alpha_1 | 工作 | 同名示例 | 重要 | 待定 | 进行中 | 第一步 | 甲说明<br>第二行 |",
+            "| beta-2 | 课程 | 同名示例 | 常规 | 2030-04-02 | 待开始 | 第二步 | 乙说明 |",
+        ), encoding="utf-8")
+        refresh.refresh(self.config, dt.date(2030, 4, 1))
+        self.source.write_text(ledger(
+            "| beta-2 | 课程 | 重命名示例 | 常规 | 2030-04-02 | 进行中 | 新步骤 | 更新的乙说明 |",
+            "| new_task_3 | 工具 | 新增示例 | 常规 | 待定 | 待开始 | 检查新项 | 新增完整说明 |",
+            "| alpha_1 | 工作 | 同名示例 | 重要 | 待定 | 进行中 | 第一步 | 甲说明<br>第二行 |",
+        ), encoding="utf-8")
+        refresh.refresh(self.config, dt.date(2030, 4, 1))
+        tasks = json.loads((self.root / "views/tasks.json").read_text(encoding="utf-8"))["tasks"]
+        self.assertEqual(["beta-2", "new_task_3", "alpha_1"], [task["id"] for task in tasks])
+        by_id = {task["id"]: task for task in tasks}
+        self.assertEqual("更新的乙说明", by_id["beta-2"]["requirement"])
+        self.assertEqual("甲说明\n第二行", by_id["alpha_1"]["requirement"])
+        self.assertEqual("新增完整说明", by_id["new_task_3"]["requirement"])
+        self.assertEqual("待开始", by_id["new_task_3"]["progress"])
+        page = (self.root / "views/details.html").read_text(encoding="utf-8")
+        self.assertIn('id="task-new_task_3"', page)
+        self.assertIn("新增完整说明", page)
+        with zipfile.ZipFile(self.root / "views/overview.xlsx") as archive:
+            detail = archive.read("xl/worksheets/sheet2.xml").decode("utf-8")
+            for task in tasks:
+                self.assertIn(task["id"], detail)
+                self.assertIn(task["requirement"], detail)
+
+    def test_malformed_edit_preserves_all_existing_views(self):
+        refresh.refresh(self.config, dt.date(2030, 4, 1))
+        paths = [self.root / "views" / name for name in ["tasks.json", "details.html", "overview.xlsx"]]
+        before = {path: path.read_bytes() for path in paths}
+        self.source.write_text(ledger("| broken | too few columns |"), encoding="utf-8")
+        with self.assertRaises(refresh.LedgerError):
+            refresh.refresh(self.config)
+        for path in paths:
+            self.assertEqual(before[path], path.read_bytes())
 
     def test_invalid_or_duplicate_tasks_fail_without_touching_views(self):
         target = self.root / "views" / "tasks.json"

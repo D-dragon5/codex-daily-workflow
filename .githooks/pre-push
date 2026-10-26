@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+audit_python=$(git config --get workflow.auditPython || true)
+if [ -z "$audit_python" ]; then
+    if command -v python3 >/dev/null 2>&1; then audit_python=python3
+    elif command -v python >/dev/null 2>&1; then audit_python=python
+    else printf '%s\n' 'Python is required for the publication privacy check.' >&2; exit 1
+    fi
+fi
+set -- tools/audit_release.py . --git-index --git-history
+private_values=$(git config --get workflow.privateValuesFile || true)
+if [ -n "$private_values" ]; then set -- "$@" --private-values-file "$private_values"; fi
+"$audit_python" "$@"

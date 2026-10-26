@@ -1,4 +1,4 @@
-﻿param([string]$OutputFolder=(Join-Path $PSScriptRoot '..\dist\tests'))
+﻿param([string]$OutputFolder=(Join-Path ([IO.Path]::GetTempPath()) ('codex-board-models-'+[Guid]::NewGuid().ToString('N'))))
 $ErrorActionPreference='Stop'
 if($env:OS -ne 'Windows_NT'){throw '本模块数据检查使用 .NET Framework 编译器，需要 Windows。'}
 $framework=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319'

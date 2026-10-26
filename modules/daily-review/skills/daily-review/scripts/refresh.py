@@ -77,17 +77,17 @@ def parse_ledger(content: str) -> List[dict]:
         if not title:
             raise LedgerError("任务标题不能为空：" + task_id)
         seen.add(task_id)
-        matches = re.findall(r"(?<!\d)\d{4}-\d{2}-\d{2}(?!\d)", deadline)
+        match = re.fullmatch(r"(?:(?:截止(?:日期|时间)?)[：:]?\s*)?(\d{4}-\d{2}-\d{2})(?:\s*(?:截止|前))?", deadline.strip())
         due = None
-        if len(matches) == 1:
+        if match:
             try:
-                due = dt.date.fromisoformat(matches[0]).isoformat()
+                due = dt.date.fromisoformat(match[1]).isoformat()
             except ValueError as error:
-                raise LedgerError("截止日期无效（%s）：%s" % (task_id, matches[0])) from error
-        # Multiple candidates remain unknown rather than silently choosing one.
+                raise LedgerError("截止日期无效（%s）：%s" % (task_id, match[1])) from error
+        # Relative, tentative and multi-candidate notes never become hard dates.
         tasks.append({
             "id": task_id, "title": title, "priority": priority or "常规", "category": category or "未分类",
-            "due": due, "status": "已完成" if status in COMPLETE else (status or "待核查"),
+            "due": due, "status": "已完成" if status in COMPLETE or status.lower() in {"done", "completed"} else (status or "待核查"),
             "next": next_step, "progress": status or "待核查", "requirement": description,
             "deadlineNote": deadline or "日期待定",
         })
